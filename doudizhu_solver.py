@@ -15,6 +15,24 @@ class COMB_TYPE:
 little_joker, big_joker = 18, 19
 HAND_PASS = {'type':COMB_TYPE.PASS, 'main': 0, 'component':[]}
 
+# 牌的映射关系
+def get_porker(input):
+    vals = { '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14, '2': 16, 'Y': 18, 'Z': 19, 'j': 11, 'q': 12, 'k': 13, 'a': 14, '2': 16, 'y': 18, 'z': 19 }
+    cards= input.split()
+    pokers = []
+    for card in cards:
+        if vals.has_key(card):
+            pokers.append(vals[card])
+        else:
+            return 0
+    return pokers
+
+def get_card(output):
+    vals = { 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10', 11:'J', 12:'Q', 13:'K', 14:'A', 16:'2', 18:'Y', 19:'Z'}
+    cards = []
+    for poker in output:
+        cards.append(vals[poker])
+    return str(cards)
 
 # 根据当前手牌，获取此牌所有可能出的牌型
 # 牌型数据结构为 {牌类型，主牌，包含的牌}
@@ -89,7 +107,74 @@ def get_all_hands(pokers):
     # 返回所有可能的出牌类型
     return combs
 
+# 根据出的牌，确定出牌类型,不符合出牌规则返回0
+def get_hand(pokers):
+    if not pokers:
+        hand = [HAND_PASS]
+        return hand
+    # 王炸
+    
+    if little_joker in pokers and big_joker in pokers:
+        hand = {'type':COMB_TYPE.BOMB, 'main': big_joker, 'component': [big_joker, little_joker]}
+        return hand
+    hand = {'component': pokers}
+    dic = counter(pokers)
 
+    for poker in dic:
+        # 单张
+        if len(pokers) == 1:
+            hand['type'] = COMB_TYPE.SINGLE
+            hand['main'] = pokers[0]
+            return hand
+        # 对子
+        elif len(pokers) == 2 and dic[poker]==2:
+            hand['type'] = COMB_TYPE.PAIR
+            hand['main'] = pokers[0]
+            return hand
+        # 三带零
+        elif len(pokers) == 3 and dic[poker]==3:
+            hand['type'] = COMB_TYPE.TRIPLE
+            hand['main'] = pokers[0]
+            return hand
+        elif len(pokers) == 4:
+            # 三带一
+            if dic[poker] == 3:
+                hand['type'] = 9
+                hand['main'] = poker
+                return hand
+            # 炸弹
+            elif dic[poker] == 4:
+                hand['type'] = 9
+                hand['main'] = pokers[0]
+                return hand
+        elif len(pokers) >= 5:
+            # 三带二
+            if dic[poker] == 3:
+                hand['type'] = COMB_TYPE.TRIPLE_TWO
+                hand['main'] = poker
+                return hand
+            elif dic[poker] == 4:
+                for poker2 in dic:
+                    # 四带二单
+                    if dic[poker2] == 1:
+                        hand['type'] = COMB_TYPE.FOURTH_TWO_ONES
+                        hand['main'] = poker
+                        return hand
+                    # 四带二对
+                    elif dic[poker2] == 2:
+                        hand['type'] = COMB_TYPE.FOURTH_TWO_PAIRS
+                        hand['main'] = poker
+                        return hand
+    if len(pokers) >= 5:
+        # 顺子
+        straight=create_straight(list(set(pokers)), len(pokers))
+        #出的牌不符合规则
+        if len(straight) == 0:#修改下
+            return 0
+        hand['type'] = COMB_TYPE.STRIGHT * len(straight[0])
+        hand['main'] = straight[0][0]
+        return hand
+    return 0
 
 # 根据列表创建顺子
 def create_straight(list_of_nums, min_length):
@@ -138,7 +223,10 @@ def can_beat(comb1, comb2):
 def make_hand(pokers, hand):
     poker_clone = pokers[:]
     for poker in hand['component']:
-        poker_clone.remove(poker)
+        if poker in poker_clone:
+            poker_clone.remove(poker)
+        else:
+            return 0
     return poker_clone
 
 
@@ -152,7 +240,7 @@ def hand_out(my_pokers, enemy_pokers, last_hand = None, cache = {}):
         
     if not enemy_pokers:
         return False
-
+        
     # 如果上一手为空, 则将上一手赋值为 HAND_PASS
     if last_hand is None:
         last_hand = HAND_PASS
@@ -170,9 +258,9 @@ def hand_out(my_pokers, enemy_pokers, last_hand = None, cache = {}):
         if can_beat(last_hand, current_hand) or \
         (last_hand['type'] != COMB_TYPE.PASS and current_hand['type'] == COMB_TYPE.PASS):
             if not hand_out(enemy_pokers, make_hand(my_pokers, current_hand), current_hand, cache):
-                # print(True,' :', key)
+                #print(True,' :', key)
                 cache[key] = True
-                return True
+                return cache
 
     # 遍历所有情况, 均无法赢, 则返回 False
     # print(False, ':', key)
@@ -185,35 +273,93 @@ def hand_out(my_pokers, enemy_pokers, last_hand = None, cache = {}):
 
 
 if __name__ == '__main__':
-    import time
-    start = time.clock()
+
 
     # 残局1
     # 是否允许三带一
     ALLOW_THREE_ONE = True
     # 是否允许三带二
-    ALLOW_THREE_TWO = False
+    ALLOW_THREE_TWO = True
     # 是否允许四带二
     ALLOW_FOUR_TWO = True
+    # 3-14 分别代表 3-10, J, Q, K, A
+    # 16, 18, 19 分别代表 2, little_joker, big_joker
+    # 将 2 与其他牌分开是为了方便计算顺子
+    # 定义 HAND_PASS 为过牌
+    while True:
+        cache={}
+        #输入扑克牌，不区分大小写，y 或Y 代表little_joker，z 或Z 代表big_joker
+        print 'Input porkes,\'y\' or \'Y\' is little_joker, \'z\' or \'Z\' is big_joker'
+        while True:
+            playerA = raw_input('lord porker:')
+            lord = get_porker(playerA)
+            if lord ==0:
+                print "Error,don't exit the porker,please try again"
+            elif len(lord)==0:
+                print "Pleas input the Porkers"
+            else:
+                break
+        while True:
+            playerB = raw_input('farmer porker:')
+            farmer = get_porker(playerB)
+            if farmer ==0:
+                print "Error,don't exit the porker,please try again"
+            elif len(farmer)==0:
+                print "Pleas input the Porkers"
+            else:
+                break
+        
+        print
+        print 'Computing the result,please wait...'
+        cache = hand_out(lord, farmer)
+        if cache ==False:
+            print 'The farmer will Win!please input again' 
+        else:
+            print 'The Lord will Win!'
+            print
+            last_hand = HAND_PASS
+            lord_hand = HAND_PASS
+            while len(lord) != 0:
+                for current_hand in get_all_hands(lord):
+                    if can_beat(last_hand, current_hand) or \
+                    (last_hand['type'] != COMB_TYPE.PASS and current_hand['type'] == COMB_TYPE.PASS):
+                        if not hand_out(farmer, make_hand(lord, current_hand), current_hand,cache):
+                            #print(True,' :', key)
+                            #cache[key] = True
+                            lord = make_hand(lord,current_hand)
+                            lord_hand = current_hand
+                            print 'lord porkers: '+get_card(lord)
+                            print 'lord:'+get_card(current_hand['component'])
+                            print 'farmer porkers: '+ get_card(farmer)
+                            break
+                if len(lord) == 0:
+                    print
+                    print 'Lord win!'
+                    break
+                while True:
+                    input = raw_input('farmer:')
+                    if input =='':
+                        last_hand = HAND_PASS
+                        break
+                    else:    
+                        pokers = get_porker(input)
+                        # 检查扑克中是否有这张牌
+                        if pokers == 0:
+                            print "Error,don't exit the porker,please try again"
+                        else:
+                            last_hand = get_hand(pokers)
+                            result = last_hand
+                            # 检查出牌的类型否符合COMB_TYPE:
+                            if last_hand ==0:
+                                print 'Error,your porker(s) doesn\'t conform to the rules,please try again or edit the rules'
+                            # 检查出的牌是否是farmer拥有的牌
+                            elif make_hand(farmer, last_hand) == 0:
+                                print 'Error,you don\'t have the porker(s),check it and try again'
+                            #检查出的牌是否能大于lord的牌
+                            elif not can_beat(lord_hand, last_hand):
+                                print 'Error,your porker(s) can\'t beat the lord\'s,please try again'
+                            else:
+                                farmer = make_hand(farmer, last_hand)
+                                break
+                        
 
-    lord = [19,18,11,11,9,9,9]
-    farmer = [3,3,3,3,4,5,6,7,10,10,14,14,14,14]
-    result = hand_out(farmer, lord)
-
-
-    # 残局2
-    # # 是否允许三带一
-    # ALLOW_THREE_ONE = False
-    # # 是否允许三带二
-    # ALLOW_THREE_TWO = False
-    # # 是否允许四带二
-    # ALLOW_FOUR_TWO = True
-
-    # lord = [14,14,11,11]
-    # farmer = [16,13,13,13,12,12,12,10,10,9,9,8,8]
-    # result = hand_out(farmer, lord)
-
-    elapsed = (time.clock() - start)
-
-    print("Result:", result)
-    print("Elapsed:", elapsed)
