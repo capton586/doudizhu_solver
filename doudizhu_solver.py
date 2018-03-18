@@ -43,7 +43,7 @@ def get_all_hands(pokers):
         return []
 
     # 过牌
-    combs = [HAND_PASS]
+    combs = []
 
     # 获取每个点数的数目
     dic = counter(pokers)
@@ -103,9 +103,12 @@ def get_all_hands(pokers):
     # 以 COMB_TYPE.STRIGHT * len(straight) 标志顺子牌型, 不同长度的顺子是不同的牌型
     for straight in create_straight(list(set(pokers)), 5):
         combs.append({'type':COMB_TYPE.STRIGHT * len(straight), 'main': straight[0], 'component': straight})
-
+    
+    # 优化牌局组合，减少计算时间
+    combs_new=sorted(combs,key = lambda combs:(-combs['type'],-combs['main']),reverse =True)
+    combs_new.append(HAND_PASS)
     # 返回所有可能的出牌类型
-    return combs
+    return combs_new
 
 # 根据出的牌，确定出牌类型,不符合出牌规则返回0
 def get_hand(pokers):
@@ -272,7 +275,7 @@ def hand_out(my_pokers, enemy_pokers, last_hand = None, cache = {}):
 
 if __name__ == '__main__':
 
-
+    import time
     # 残局1
     # 是否允许三带一
     ALLOW_THREE_ONE = True
@@ -309,7 +312,10 @@ if __name__ == '__main__':
 
         print
         print 'Computing the result,please wait...'
+        start = time.time()
         cache = hand_out(lord, farmer)
+        end = time.time()
+        print "time:"+str(end-start)
         if cache ==False:
             print 'The farmer will Win!please input again'
         else:
