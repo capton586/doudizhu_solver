@@ -113,7 +113,7 @@ def get_hand(pokers):
         hand = [HAND_PASS]
         return hand
     # 王炸
-    
+
     if little_joker in pokers and big_joker in pokers:
         hand = {'type':COMB_TYPE.BOMB, 'main': big_joker, 'component': [big_joker, little_joker]}
         return hand
@@ -165,15 +165,13 @@ def get_hand(pokers):
                         hand['type'] = COMB_TYPE.FOURTH_TWO_PAIRS
                         hand['main'] = poker
                         return hand
-    if len(pokers) >= 5:
-        # 顺子
-        straight=create_straight(list(set(pokers)), len(pokers))
-        #出的牌不符合规则
-        if len(straight) == 0:#修改下
-            return 0
-        hand['type'] = COMB_TYPE.STRIGHT * len(straight[0])
-        hand['main'] = straight[0][0]
-        return hand
+            else:
+                # 顺子
+                for straight in create_straight(list(set(pokers)), len(pokers)):
+                    if straight:
+                        hand['type'] = COMB_TYPE.STRIGHT * len(straight)
+                        hand['main'] = straight[0]
+                        return hand    
     return 0
 
 # 根据列表创建顺子
@@ -237,10 +235,10 @@ def hand_out(my_pokers, enemy_pokers, last_hand = None, cache = {}):
     # 牌局终止的边界条件
     if not my_pokers:
         return True
-        
+
     if not enemy_pokers:
         return False
-        
+
     # 如果上一手为空, 则将上一手赋值为 HAND_PASS
     if last_hand is None:
         last_hand = HAND_PASS
@@ -252,7 +250,7 @@ def hand_out(my_pokers, enemy_pokers, last_hand = None, cache = {}):
 
     # 模拟出牌过程, 深度优先搜索, 找到赢的分支则返回 True
     for current_hand in get_all_hands(my_pokers):
-        # 转换出牌权有两种情况: 
+        # 转换出牌权有两种情况:
         # 1. 当前手胜出, 则轮到对方选择出牌
         # 2. 当前手 PASS, 且对方之前没有 PASS, 则轮到对方出牌
         if can_beat(last_hand, current_hand) or \
@@ -308,12 +306,12 @@ if __name__ == '__main__':
                 print "Pleas input the Porkers"
             else:
                 break
-        
+
         print
         print 'Computing the result,please wait...'
         cache = hand_out(lord, farmer)
         if cache ==False:
-            print 'The farmer will Win!please input again' 
+            print 'The farmer will Win!please input again'
         else:
             print 'The Lord will Win!'
             print
@@ -341,14 +339,14 @@ if __name__ == '__main__':
                     if input =='':
                         last_hand = HAND_PASS
                         break
-                    else:    
+                    else:
                         pokers = get_porker(input)
                         # 检查扑克中是否有这张牌
                         if pokers == 0:
                             print "Error,don't exit the porker,please try again"
                         else:
                             last_hand = get_hand(pokers)
-                            result = last_hand
+                            #result = last_hand
                             # 检查出牌的类型否符合COMB_TYPE:
                             if last_hand ==0:
                                 print 'Error,your porker(s) doesn\'t conform to the rules,please try again or edit the rules'
@@ -361,5 +359,5 @@ if __name__ == '__main__':
                             else:
                                 farmer = make_hand(farmer, last_hand)
                                 break
-                        
+
 
